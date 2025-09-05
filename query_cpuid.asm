@@ -3,16 +3,28 @@
 section .data
 	str1 db 'Unable to set ID flag at EFLAGS bit 21, cpuid is not available', 10, 0
 	len_str1 equ $-str1
-	strVMX db 'ecx: VMX bit is '
+
+	strVMX db 'ECX: VMX bit is '
 	len_strVMX equ $-strVMX
+
 	strSet db 'set',10
 	len_strSet equ $-strSet
+
 	strNotSet db 'not set',10
 	len_strNotSet equ $-strNotSet
+	
+	strReg db 'EAX','EBX','ECX','EDX'
+	strBit db ':bit '
+	len_strBit equ $-strBit 
+	strIs db ' is '
+	len_strIs equ $-strIs
+	
+	
 	
 	efmask dd 1 << 21
 	vmxmask dd 1 << 5
 section .bss
+	output_bitIndex resb 4
 	cpuid_vendor resb 13
 	cpuid_cpuname resb 49
 
@@ -20,16 +32,17 @@ section .text
 global _start
 
 print:
-	push ebp
-	mov ebp, esp
-
+	pushad
+	
 	mov eax, 4
 	mov ebx, 1	
-	mov edx, [ebp+8]
-	mov ecx, [ebp+12]
+	mov edx, [esp+12]
+	mov edx, [edx+4]
+	mov ecx, [esp+12]
+	mov ecx, [ecx+8]
 	int 0x80
 	
-	pop ebp
+	popad
 	ret
 
 checkCpuid:
@@ -68,6 +81,7 @@ _start:
 	push cpuid_vendor
 	push 13
 	call print
+	add esp, 8
 .getNameStr:
 	mov eax, 0x80000000 
 	cpuid
@@ -98,7 +112,9 @@ _start:
 	push cpuid_cpuname
 	push 49
 	call print
+	add esp, 8
 .getVMXSupport:
+	jmp .getVMXSupport2			; test
 	xor ecx, ecx
 	mov eax, 0x1
 	cpuid
@@ -109,26 +125,142 @@ _start:
 	push strVMX
 	push len_strVMX
 	call print
-
+	add esp, 8
+	
+.getVMXSupport2:
+	mov eax, 0x1
+	mov ebx, 2
+	mov edx, 5
+	call testLeafRegBit
+	jmp .end				; test
+	cmp eax, 1
 	jne .ifVMXNotSet
 .ifVMXSet:
 	push strSet
 	push len_strSet
 	call print
+	add esp, 8
+
 	jmp .end
 .ifVMXNotSet:
 	push strNotSet
 	push len_strNotSet
 	call print
-	
+	add esp, 8
+
 	jmp .end	
 .cpuidNotAvailable:
 	push str1
 	push len_str1
 	call print
+	add esp, 8
+	
 	mov ebx, 1
 .end:
 	mov eax, 1
 	mov ebx, 0
 	int 0x80
 
+
+testLeafRegBit: 			; eax=Leaf, ebx=Reg, edx=Bit, return is eax = tested bit
+	mov esi, ebx
+	mov edi, edx
+
+	cmp esi, 3
+	ja .end
+	cmp esi, 0
+	jb .end
+
+	xor ecx, ecx
+	cpuid
+	
+.ifEDX:
+	cmp esi, 3 
+	jb .ifECX
+	mov eax, edx
+	jmp .endRegIf 
+.ifECX:
+	cmp esi, 2 
+	jb .ifEBX
+	mov eax, ecx
+	jmp .endRegIf
+.ifEBX:
+	cmp esi, 1
+	jb .ifEAX
+	mov eax, ebx
+.ifEAX:
+.endRegIf:
+	nop
+	
+	; moving to 'bt r,r' 	
+	;mov ecx, 31
+	;sub ecx, esi	
+	;shl eax, cl
+	;mov ecx, esi
+	;shr eax, cl
+	
+	bt eax, esi
+	;cmp eax, 0x1
+	
+	mov eax, esi
+	mov ebx, 3
+	mul ebx
+	
+	cmp eax, 9
+	ja .end	
+
+	lea edx, [strReg + eax]
+	push edx
+	push 3
+	call print
+	add esp, 8
+	
+	push strBit
+	push len_strBit
+	call print
+	add esp, 8
+	
+.calcBit:			
+	mov eax, edi
+	
+	lea edi, [output_bitIndex]		
+	xor edx, edx				; div operates on EDX:EAX	
+	mov ebx, 10	
+	div ebx
+	add edx, 48
+	mov byte [edi+1], dl			; to write in reversed order, must take care of data length
+	
+	xor edx, edx
+	div ebx
+	add edx, 48
+	mov byte [edi], dl			; use BYTE with 8-bit register to not override adjacent
+
+	push edi
+	push 2
+	call print
+	add esp, 8
+
+	push strIs
+	push len_strIs
+	call print
+	add esp, 8
+	
+	jc .bitSet
+.bitNotSet:
+	push strNotSet
+	push len_strNotSet
+	call print
+	add esp, 8
+
+	mov eax, 0
+	jmp .end	
+.bitSet:
+	push strSet
+	push len_strSet
+	call print
+	mov eax, 1
+	add esp, 8
+.end:	
+	ret	
+	
+	
