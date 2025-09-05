@@ -45,6 +45,22 @@ print:
 	popad
 	ret
 
+inArgs:
+	pushad
+	
+	mov eax, 3
+	mov ebx, 0
+	mov edx, [esp+12]
+	mov edx, [edx+4]
+	mov ecx, [esp+12]
+	mov ecx, [ecx+8]
+	int 0x80
+	
+	popad
+	ret
+
+
+
 checkCpuid:
 	pushfd
 	pop eax
@@ -132,6 +148,10 @@ _start:
 	mov ebx, 2
 	mov edx, 5
 	call testLeafRegBit
+	mov eax, 0x1
+	mov ebx, 2
+	mov edx, 31
+	call testLeafRegBit
 	jmp .end				; test
 	cmp eax, 1
 	jne .ifVMXNotSet
@@ -190,16 +210,14 @@ testLeafRegBit: 			; eax=Leaf, ebx=Reg, edx=Bit, return is eax = tested bit
 	mov eax, ebx
 .ifEAX:
 .endRegIf:	
-	bt eax, esi
+	push eax		
+	push edi
 	
 	mov eax, esi
 	mov ebx, 3
 	xor edx, edx 				; mul operates on EDX:EAX as well
 	mul ebx
 	
-	cmp eax, 9
-	ja .end	
-
 	lea edx, [strReg + eax]
 	push edx
 	push 3
@@ -236,6 +254,9 @@ testLeafRegBit: 			; eax=Leaf, ebx=Reg, edx=Bit, return is eax = tested bit
 	call print
 	add esp, 8
 	
+	pop edi
+	pop eax
+	bt eax, edi	
 	jc .bitSet
 .bitNotSet:
 	push strNotSet
