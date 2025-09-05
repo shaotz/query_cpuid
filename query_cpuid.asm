@@ -1,11 +1,17 @@
 ; query_cpuid.asm
 
 section .data
-	fmt_plain db "%s",0
 	str1 db 'Unable to set ID flag at EFLAGS bit 21, cpuid is not available', 10, 0
 	len_str1 equ $-str1
+	strVMX db 'ecx: VMX bit is '
+	len_strVMX equ $-strVMX
+	strSet db 'set',10
+	len_strSet equ $-strSet
+	strNotSet db 'not set',10
+	len_strNotSet equ $-strNotSet
 	
 	efmask dd 1 << 21
+	vmxmask dd 1 << 5
 section .bss
 	cpuid_vendor resb 13
 	cpuid_cpuname resb 49
@@ -23,7 +29,6 @@ print:
 	mov ecx, [ebp+12]
 	int 0x80
 	
-	mov esp, ebp
 	pop ebp
 	ret
 
@@ -93,7 +98,30 @@ _start:
 	push cpuid_cpuname
 	push 49
 	call print
+.getVMXSupport:
+	xor ecx, ecx
+	mov eax, 0x1
+	cpuid
+	mov ebx, [vmxmask]
+	and ecx, ebx
+	xor ecx, ebx
+	cmp ecx, 0x0
+	push strVMX
+	push len_strVMX
+	call print
+
+	jne .ifVMXNotSet
+.ifVMXSet:
+	push strSet
+	push len_strSet
+	call print
 	jmp .end
+.ifVMXNotSet:
+	push strNotSet
+	push len_strNotSet
+	call print
+	
+	jmp .end	
 .cpuidNotAvailable:
 	push str1
 	push len_str1
