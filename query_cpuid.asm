@@ -189,21 +189,12 @@ testLeafRegBit: 			; eax=Leaf, ebx=Reg, edx=Bit, return is eax = tested bit
 	jb .ifEAX
 	mov eax, ebx
 .ifEAX:
-.endRegIf:
-	nop
-	
-	; moving to 'bt r,r' 	
-	;mov ecx, 31
-	;sub ecx, esi	
-	;shl eax, cl
-	;mov ecx, esi
-	;shr eax, cl
-	
+.endRegIf:	
 	bt eax, esi
-	;cmp eax, 0x1
 	
 	mov eax, esi
 	mov ebx, 3
+	xor edx, edx 				; mul operates on EDX:EAX as well
 	mul ebx
 	
 	cmp eax, 9
