@@ -45,22 +45,6 @@ print:
 	popad
 	ret
 
-inArgs:
-	pushad
-	
-	mov eax, 3
-	mov ebx, 0
-	mov edx, [esp+12]
-	mov edx, [edx+4]
-	mov ecx, [esp+12]
-	mov ecx, [ecx+8]
-	int 0x80
-	
-	popad
-	ret
-
-
-
 checkCpuid:
 	pushfd
 	pop eax
@@ -129,21 +113,8 @@ _start:
 	push 49
 	call print
 	add esp, 8
-.getVMXSupport:
-	jmp .getVMXSupport2			; test
-	xor ecx, ecx
-	mov eax, 0x1
-	cpuid
-	mov ebx, [vmxmask]
-	and ecx, ebx
-	xor ecx, ebx
-	cmp ecx, 0x0
-	push strVMX
-	push len_strVMX
-	call print
-	add esp, 8
 	
-.getVMXSupport2:
+.getVMXSupport:
 	mov eax, 0x1
 	mov ebx, 2
 	mov edx, 5
